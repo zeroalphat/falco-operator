@@ -92,10 +92,11 @@ func TestGenerateOverlayOptions(t *testing.T) {
 		defs         *InstanceDefaults
 		resourceType string
 
-		wantLabels   map[string]string
-		wantReplicas int64
-		wantVersion  string
-		wantStrategy string
+		wantLabels         map[string]string
+		wantTemplateLabels map[string]string
+		wantReplicas       int64
+		wantVersion        string
+		wantStrategy       string
 	}{
 		{
 			name: "Falco with defaults only produces labels option",
@@ -186,6 +187,54 @@ func TestGenerateOverlayOptions(t *testing.T) {
 			wantLabels: map[string]string{
 				"app.kubernetes.io/name":     "falco-operator",
 				"app.kubernetes.io/instance": "instance-1",
+			},
+		},
+		{
+			name: "Falco with a CR label keeps PodTemplateSpec labels",
+			obj: &instancev1alpha1.Falco{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "falco-podtemplate-labels",
+					Namespace: testNamespace,
+					Labels:    map[string]string{"app": "falco"},
+				},
+				Spec: instancev1alpha1.FalcoSpec{
+					PodTemplateSpec: &corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"test": "falco-pod"},
+						},
+					},
+				},
+			},
+			defs:         FalcoDefaults,
+			resourceType: ResourceTypeDaemonSet,
+			wantTemplateLabels: map[string]string{
+				"app":  "falco",
+				"test": "falco-pod",
+			},
+		},
+		{
+			name: "Component with a CR label keeps PodTemplateSpec labels",
+			obj: &instancev1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "metacollector-podtemplate-labels",
+					Namespace: testNamespace,
+					Labels:    map[string]string{"app": "metacollector"},
+				},
+				Spec: instancev1alpha1.ComponentSpec{
+					Component: instancev1alpha1.ComponentInfo{Type: instancev1alpha1.ComponentTypeMetacollector},
+					PodTemplateSpec: &corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"test": "metacollector-pod"},
+						},
+					},
+				},
+			},
+			defs:         MetacollectorDefaults,
+			resourceType: ResourceTypeDeployment,
+			wantLabels:   map[string]string{"app": "metacollector"},
+			wantTemplateLabels: map[string]string{
+				"app":  "metacollector",
+				"test": "metacollector-pod",
 			},
 		},
 		{
@@ -320,6 +369,9 @@ func TestGenerateOverlayOptions(t *testing.T) {
 			templateLabels, _, _ := unstructured.NestedStringMap(overlay.Object, "spec", "template", "metadata", "labels")
 			assert.Equal(t, tt.obj.GetName(), templateLabels["app.kubernetes.io/instance"], "pod template label app.kubernetes.io/instance should match object name")
 			assert.Equal(t, tt.obj.GetName(), templateLabels["app.kubernetes.io/name"], "pod template label app.kubernetes.io/name should match object name")
+			for k, v := range tt.wantTemplateLabels {
+				assert.Equal(t, v, templateLabels[k], "pod template label %s", k)
+			}
 
 			// Replicas.
 			if tt.wantReplicas > 0 {

@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -165,7 +166,7 @@ func GenerateUserOverlay(resourceType, name string, defs *InstanceDefaults, opts
 			dep.Spec.Template = corev1.PodTemplateSpec{}
 		}
 		if cfg.labels != nil {
-			dep.Spec.Template.Labels = forgePodTemplateSpecLabels(name, cfg.labels)
+			dep.Spec.Template.Labels = forgePodTemplateSpecLabels(name, labels.Merge(cfg.labels, dep.Spec.Template.Labels))
 		}
 		if cfg.strategy != nil {
 			dep.Spec.Strategy = *cfg.strategy
@@ -188,7 +189,7 @@ func GenerateUserOverlay(resourceType, name string, defs *InstanceDefaults, opts
 			ds.Spec.Template = corev1.PodTemplateSpec{}
 		}
 		if cfg.labels != nil {
-			ds.Spec.Template.Labels = forgePodTemplateSpecLabels(name, cfg.labels)
+			ds.Spec.Template.Labels = forgePodTemplateSpecLabels(name, labels.Merge(cfg.labels, ds.Spec.Template.Labels))
 		}
 		if cfg.updateStrategy != nil {
 			ds.Spec.UpdateStrategy = *cfg.updateStrategy
